@@ -1,4 +1,5 @@
 ﻿using NeuralNetwork.Network;
+using NeuralNetworkConsoleApp.Data;
 using System;
 using System.Collections.Generic;
 
@@ -10,45 +11,55 @@ namespace NeuralNetworkConsoleApp
     {
         static void Main(string[] args)
         {
-            Config config = new Config(4, new int[] { 2 }, 1, 0.1);
+            Config config = new Config(13, new int[] { 10, 5 }, 1, 0.1);
             Network network = new Network(config);
 
 
-            var dataset = new List<Tuple<double, double[]>>()
-            {
-                // Результат - Пациент болен - 1
-                // Пациент Здоров - 0
+            //Результат - Пациент болен - 1
+            // Пациент Здоров - 0
 
-                // Неправильная температура T
-                // Хороший возраст A
-                // Курит S
-                // Правильно питается F
-                                                            // T  A  S  F
-                new Tuple<double, double[]> (0, new double[] { 0, 0, 0, 0 }),
-                new Tuple<double, double[]> (0, new double[] { 0, 0, 0, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 0, 0, 1, 0 }),
-                new Tuple<double, double[]> (0, new double[] { 0, 0, 1, 1 }),
-                new Tuple<double, double[]> (0, new double[] { 0, 1, 0, 0 }),
-                new Tuple<double, double[]> (0, new double[] { 0, 1, 0, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 0, 1, 1, 0 }),
-                new Tuple<double, double[]> (0, new double[] { 0, 1, 1, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 0, 0, 0 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 0, 0, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 0, 1, 0 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 0, 1, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 1, 0, 0 }),
-                new Tuple<double, double[]> (0, new double[] { 1, 1, 0, 1 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 1, 1, 0 }),
-                new Tuple<double, double[]> (1, new double[] { 1, 1, 1, 1 })
+            // Неправильная температура T
+            // Хороший возраст A
+            // Курит S
+            // Правильно питается F
+
+            double[,] datasetArr = new double[,]
+            {
+                // T  A  S  F  Res
+                { 0, 0, 0, 0, 0 },
+                { 0, 0, 0, 1, 0 },
+                { 0, 0, 1, 0, 1 },
+                { 0, 0, 1, 1, 0 },
+                { 0, 1, 0, 0, 0 },
+                { 0, 1, 0, 1, 0 },
+                { 0, 1, 1, 0, 1 },
+                { 0, 1, 1, 1, 0 },
+                { 1, 0, 0, 0, 1 },
+                { 1, 0, 0, 1, 1 },
+                { 1, 0, 1, 0, 1 },
+                { 1, 0, 1, 1, 1 },
+                { 1, 1, 0, 0, 1 },
+                { 1, 1, 0, 1, 0 },
+                { 1, 1, 1, 0, 1 },
+                { 1, 1, 1, 1, 1 }
             };
 
-
-            network.LearnNetwork(dataset, 10000);
-
-
-            foreach (var data in dataset)
+            Type[] types = new Type[]
             {
-                Console.WriteLine(data.Item1 + " " + Math.Round(network.StartNetwork(new List<double>(data.Item2)).OutputSignal, 5));
+                typeof(double),
+                typeof(double),
+                typeof(double),
+                typeof(double),
+                typeof(double)
+            };
+
+            network.LearnNetwork(datasetArr, types, SignalsScalingOptions.Scale, datasetArr.GetLength(1) - 1, 10000, out Dataset mainDataset);
+
+
+            for (int i = 0; i < mainDataset.RowsCount; i++)
+            {
+                Neuron neuron = network.StartNetwork(new List<double>(mainDataset.GetRow(i, true)));
+                Console.WriteLine(datasetArr[i, datasetArr.GetLength(1) - 1] + " " + Math.Round(neuron.OutputSignal, 5));
             }
         }
     }

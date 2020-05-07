@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NeuralNetworkConsoleApp.Data;
+using System;
 using System.Collections.Generic;
 
 
@@ -107,16 +108,35 @@ namespace NeuralNetwork.Network
 
 
 
-        public double LearnNetwork(List<Tuple<double, double[]>> dataset, int epochCount)
+        public double LearnNetwork(double[,] datasetArr, Type[] columnsTypes, SignalsScalingOptions scaling, int resultsColumnIndex, int epochCount, out Dataset dataset)
         {
+            // Создание экземпляра класса Dataset, преобразование данных
+            dataset = new Dataset(datasetArr, columnsTypes, resultsColumnIndex);
+
+
+            // Масштабирование данных
+            if (scaling == SignalsScalingOptions.Scale)
+            {
+                ScaleData(dataset.Data);
+            }
+            else if (scaling == SignalsScalingOptions.Normalize)
+            {
+                NormalizeData(dataset.Data);
+            }
+
+
+            // Запуск цикла обучения
             double error = 0;
 
-            for (int i = 0; i < epochCount; i++)
+            for (int epoch = 0; epoch < epochCount; epoch++)
             {
-                Console.WriteLine("epoch: " + i);
-                foreach (var data in dataset)
+                Console.WriteLine("epoch: " + epoch);
+
+                dataset.GetColumnType(resultsColumnIndex, out double[] resultsColumn);
+
+                for (int i = 0; i < dataset.RowsCount; i++)
                 {
-                    error += CreateBackpropagation(data.Item1, new List<double>(data.Item2));
+                    error += StartBackpropagation(resultsColumn[i], new List<double>(dataset.GetRow(i, true)));
                 }
             }
             return error / epochCount; /// Средняя квадратичная ошибка
@@ -124,13 +144,13 @@ namespace NeuralNetwork.Network
 
 
 
-        private double CreateBackpropagation(double expectedResult, List<double> inputSignals)
+        private double StartBackpropagation(double expectedResult, List<double> inputSignals)
         {
             double difference = 0;
 
             for (int k = Layers.Count - 1; k >= 0; k--)
             {
-                if (k == Layers.Count - 1) // Последний (первый с конца) слой
+                if (k == Layers.Count - 1) /// Последний (первый с конца) слой
                 {
                     Neuron resultNeuron = StartNetwork(inputSignals);
                     double actualResult = resultNeuron.OutputSignal;
@@ -141,7 +161,7 @@ namespace NeuralNetwork.Network
                         neuron.Recalculate(difference, Configuration.LearningRate);
                     }
                 }
-                else if (k < Layers.Count - 1) // Все остальные слои
+                else if (k < Layers.Count - 1) /// Все остальные слои
                 {
                     Layer currentLayer = Layers[k];
                     Layer previosLayer = Layers[k + 1]; /// С конца
@@ -163,5 +183,85 @@ namespace NeuralNetwork.Network
 
             return Math.Pow(difference, 2);
         }
+
+
+
+        // Масштабирование данных
+        private double[,] ScaleData(double[,] datasetMatrix)
+        {
+            double[,] resultMatrix = new double[datasetMatrix.GetLength(0), datasetMatrix.GetLength(1)];
+
+            for (int column = 0; column < datasetMatrix.GetLength(1); column++)
+            {
+                double min = double.MaxValue;
+                double max = double.MinValue;
+
+                for (int row = 0; row < datasetMatrix.GetLength(0); row++)
+                {
+                    double currentItem = datasetMatrix[row, column];
+
+                    if (currentItem < min) /// Нахождениение минимального значения в столбце
+                    {
+                        min = currentItem;
+                    }
+                    if (currentItem > max) /// Нахождениение максимального значения в столбце
+                    {
+                        max = currentItem;
+                    }
+                }
+
+                for (int row = 0; row < datasetMatrix.GetLength(0); row++) /// Запись маштабируемых данных в новый двумерный массив 
+                {
+                    resultMatrix[row, column] = (datasetMatrix[row, column] - min) / (max - min); /// Новое значение = (текущее - минимум) / (максимум - минимум)
+                }
+            }
+
+            return resultMatrix;
+        }
+
+
+
+        // Нормализация данных
+        private double[,] NormalizeData(double[,] datasetMatrix)
+        {
+            double[,] resultMatrix = new double[datasetMatrix.GetLength(0), datasetMatrix.GetLength(1)];
+
+            for (int column = 0; column < datasetMatrix.GetLength(1); column++)
+            {
+                double xSum = 0;
+                for (int row = 0; row < datasetMatrix.GetLength(1); row++)
+                {
+                    xSum += datasetMatrix[row, column]; /// Находим сумму всех значений x
+                }
+
+                double avarage = xSum / datasetMatrix.GetLength(1); /// Среднее арифметическое значение столбца ∑x / n
+
+
+                double diffSum = 0;
+                for (int row = 0; row < datasetMatrix.GetLength(0); row++)
+                {
+                    diffSum += Math.Pow(datasetMatrix[row, column] - avarage, 2); /// Находим суммау разности x и среднего, возведенной в квадрат
+                }
+
+                double deviation = Math.Sqrt(diffSum / datasetMatrix.GetLength(0)); /// Стандартное квадратичное отклонение √((∑(x - avr))² / n)
+
+
+                for (int row = 0; row < datasetMatrix.GetLength(0); row++)
+                {
+                    resultMatrix[row, column] = (datasetMatrix[row, column] - avarage) / deviation; /// Новое значение сигнала (x - avr) / Δ
+                }
+            }
+
+            return resultMatrix;
+        }
+    }
+
+
+
+    public enum SignalsScalingOptions
+    {
+        Scale,
+        Normalize,
+        None
     }
 }
